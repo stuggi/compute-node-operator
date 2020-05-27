@@ -489,11 +489,11 @@ func updateNodesStatus(c client.Client, kclient kubernetes.Interface, instance *
 				case "succeeded":
 					log.Info(fmt.Sprintf("NodeDrainPost job succeeded: %s", node.Name+"-drain-job-post"))
 					// Delete draining jobs
-					err = deleteJobWithName(c, instance, node.Name+"-drain-job-pre")
+					err = deleteJobWithName(c, kclient, instance, node.Name+"-drain-job-pre")
 					if err != nil && !errors.IsNotFound(err) {
 						return err
 					}
-					err = deleteJobWithName(c, instance, node.Name+"-drain-job-post")
+					err = deleteJobWithName(c, kclient, instance, node.Name+"-drain-job-post")
 					if err != nil && !errors.IsNotFound(err) {
 						return err
 					}
@@ -897,7 +897,7 @@ func addToBeRemovedTaint(kclient kubernetes.Interface, node corev1.Node) error {
 	return nil
 }
 
-func deleteJobWithName(c client.Client, instance *computenodev1alpha1.ComputeNodeOpenStack, jobName string) error {
+func deleteJobWithName(c client.Client, kclient kubernetes.Interface, instance *computenodev1alpha1.ComputeNodeOpenStack, jobName string) error {
 	job := &batchv1.Job{}
 	err := c.Get(context.TODO(), types.NamespacedName{Name: jobName, Namespace: instance.Namespace}, job)
 	if err != nil {
@@ -905,7 +905,8 @@ func deleteJobWithName(c client.Client, instance *computenodev1alpha1.ComputeNod
 	}
 
 	if job.Status.Succeeded == 1 {
-		err = c.Delete(context.TODO(), job)
+		background := metav1.DeletePropagationBackground
+		err = kclient.BatchV1().Jobs(instance.Namespace).Delete(jobName, &metav1.DeleteOptions{PropagationPolicy: &background})
 		if err != nil {
 			return fmt.Errorf("failed to delete drain job: %v", job.Name, err)
 		}
