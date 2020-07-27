@@ -25,6 +25,7 @@ import (
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -315,6 +316,30 @@ func (r *ReconcileComputeNodeOpenStack) Reconcile(request reconcile.Request) (re
 		if obj.GetNamespace() == instance.Namespace {
 			obj.SetOwnerReferences([]metav1.OwnerReference{*oref})
 		}
+		// TODO update machineset hostselector
+		workerMachineSet := &machinev1beta1.MachineSet{}
+		if obj.GetKind() == workerMachineSet.Kind {
+			labelSelector := labels.NewSelector()
+			var reqs labels.Requirements
+			for labelKey, labelVal := range instance.Spec.HostSelector.MatchLabels {
+				log.Info("Adding requirement to match label",
+					"label key", labelKey,
+					"label value", labelVal)
+				r, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal})
+				if err != nil {
+					log.Error(err, "Failed to create MatchLabel requirement, not choosing host")
+					return reconcile.Result{}, err
+				}
+				reqs = append(reqs, *r)
+			}
+
+			hostSelector := labels.SelectorFromSet(instance.Spec.HostSelector)
+
+			key := client.ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+			obj.SetUnstructuredContent()
+			workerMachineSet.Spec.Template.Spec.ProviderSpec
+		}
+
 		// merge owner ref label into labels on the objects
 		obj.SetLabels(labels.Merge(obj.GetLabels(), labelSelector))
 		objs = append(objs, obj)
@@ -358,6 +383,27 @@ func getRenderData(ctx context.Context, client client.Client, instance *computen
 	data.Data["K8sServiceIP"] = instance.Spec.K8sServiceIP
 	data.Data["APIIntIP"] = instance.Spec.APIIntIP
 	data.Data["Workers"] = instance.Spec.Workers
+
+	matchLabels := labels.Set(instance.Spec.HostSelector.MatchLabels).String()
+	log.Info(fmt.Sprintf("HostSelectorMatchLabels: %v", matchLabels))
+	/*
+		//labelSelector := labels.NewSelector()
+		var reqs labels.Requirements
+
+		for labelKey, labelVal := range instance.Spec.HostSelector.MatchLabels {
+			log.Info("Adding requirement to match label",
+				"label key", labelKey,
+				"label value", labelVal)
+			r, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal})
+			if err != nil {
+				log.Error(err, "Failed to create MatchLabel requirement, not choosing host")
+				return data, err
+			}
+			reqs = append(reqs, *r)
+		}*/
+	data.Data["HostSelectorMatchLabels"] = matchLabels
+	log.Info(fmt.Sprintf("HostSelectorMatchExpressions: %v", instance.Spec.HostSelector.MatchExpressions))
+	data.Data["HostSelectorMatchExpressions"] = instance.Spec.HostSelector.MatchExpressions
 
 	data.Data["Isolcpus"] = false
 	data.Data["SshdPort"] = 2022

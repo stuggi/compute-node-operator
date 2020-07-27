@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/selection"
 )
 
 // ComputeNodeOpenStackSpec defines the desired state of ComputeNodeOpenStack
@@ -18,6 +19,9 @@ type ComputeNodeOpenStackSpec struct {
 	APIIntIP string `json:"apiIntIP"`
 	// Number of workers
 	Workers int32 `json:"workers,omitempty"`
+	// specifies matching criteria for labels on BareMetalHosts.
+	//HostSelectorLabels map[string]string `json:"hostSelectorLabels,omitempty"`
+	HostSelector HostSelector `json:"hostSelector,omitempty"`
 	// Cores Pinning
 	CorePinning string `json:"corePinning,omitempty"`
 	// Infra DaemonSets needed
@@ -69,7 +73,7 @@ type NovaCompute struct {
 
 // NeutronNetwork defines neutron configuration parameters
 type NeutronNetwork struct {
-	Nic				 string `json:"nic"`
+	Nic              string      `json:"nic"`
 	BridgeMappings   string      `json:"bridgeMappings,omitempty"`
 	MechanishDrivers string      `json:"mechanismDrivers,omitempty"`
 	ServicePlugings  string      `json:"servicePlugins,omitempty"`
@@ -79,6 +83,23 @@ type NeutronNetwork struct {
 // SriovConfig defines SRIOV config parameters, such as nic information.
 type SriovConfig struct {
 	DevName string `json:"devName"`
+}
+
+// HostSelector specifies matching criteria for labels on BareMetalHosts.
+// This is used to limit the set of BareMetalHost objects considered for
+// claiming for a compute workers.
+type HostSelector struct {
+	// Key/value pairs of labels that must exist on a chosen BareMetalHost
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+	// Label match expressions that must be true on a chosen BareMetalHost
+	MatchExpressions []HostSelectorRequirement `json:"matchExpressions,omitempty"`
+}
+
+// HostSelectorRequirement specifies the MatchExpressions
+type HostSelectorRequirement struct {
+	Key      string             `json:"key"`
+	Operator selection.Operator `json:"operator"`
+	Values   []string           `json:"values"`
 }
 
 // NodeToDelete defines the name of the node to delete and if automatic drain is needed

@@ -80,6 +80,40 @@ spec:
               required:
               - drainPodImage
               type: object
+            hostSelector:
+              description: specifies matching criteria for labels on BareMetalHosts.
+                HostSelectorLabels map[string]string `json:"hostSelectorLabels,omitempty"`
+              properties:
+                matchExpressions:
+                  description: Label match expressions that must be true on a chosen
+                    BareMetalHost
+                  items:
+                    description: HostSelectorRequirement specifies the MatchExpressions
+                    properties:
+                      key:
+                        type: string
+                      operator:
+                        description: Operator represents a key/field's relationship
+                          to value(s). See labels.Requirement and fields.Requirement
+                          for more details.
+                        type: string
+                      values:
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    - values
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: Key/value pairs of labels that must exist on a chosen
+                    BareMetalHost
+                  type: object
+              type: object
             infraDaemonSets:
               description: Infra DaemonSets needed
               items:
